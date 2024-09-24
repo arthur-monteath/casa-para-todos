@@ -1,6 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
-using UnityEditor.PackageManager;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,8 +8,13 @@ public class GameManager : MonoBehaviour
 {
     public int totalRounds = 10; // Total de rodadas
     private int currentRound = 0;
+    
+    public int GetCurrentRound()
+    {
+        return currentRound;
+    }
 
-    public float roundDuration = 60f; // Duração da rodada em segundos
+    public float roundDuration = 180f; // Duração da rodada em segundos
     private bool isRoundActive = false;
 
     public SlotHandler slotHandler;
@@ -25,10 +30,20 @@ public class GameManager : MonoBehaviour
 
     public int resources;
 
+    public Dictionary<Slot.State, int> priceDictionary;
+
     private void Awake()
     {
         Instance = this;
+
+        priceDictionary = new Dictionary<Slot.State, int>();
+
+        priceDictionary[Slot.State.precaria] = 8;
+        priceDictionary[Slot.State.reformando] = 10;
+        priceDictionary[Slot.State.parque] = 8;
     }
+
+    public SpriteRenderer grass;
 
     void Start()
     {
@@ -44,23 +59,48 @@ public class GameManager : MonoBehaviour
 
             resources += 10;
 
+            slotHandler.StartRound();
+
             // Escolhe um evento aleatório
-            if (currentRound != 1)
+            if (currentRound != 1 || currentRound != totalRounds)
                 TriggerRandomEvent();
 
             if (currentRound == totalRounds)
-                EndGame();
+            {
+                var states = slotHandler.GetChildrenStates();
 
-            if(slotHandler.HasNoParks())
+                int casas = 0;
+                int reformas = 0;
+                int precarias = 0;
+                int parques = 0;
+
+                if (states.ContainsKey(Slot.State.pronta))
+                    casas = states[Slot.State.pronta];
+                if (states.ContainsKey(Slot.State.reformando))
+                    reformas = states[Slot.State.reformando];
+                if (states.ContainsKey(Slot.State.precaria))
+                    precarias = states[Slot.State.precaria];
+                if (states.ContainsKey(Slot.State.parque))
+                    parques = states[Slot.State.parque];
+
+                int pontos = casas * 100 + reformas * 50 + parques * 20 + precarias * 10;
+
+                EndGame("Fim de Jogo!", "Você construiu " + precarias + " moradia(s) precária(s), deixou " + reformas + " em reforma, fez " + casas + " moradia(s) digna(s) e " + parques + " parque(s). Totalizando " + pontos + " pontos.");
+                break;
+            }
+
+            if (slotHandler.HasNoParks())
             {
                 happiness -= 0.1f;
+                if (happiness <= 0)
+                {
+                    EndGame("Protesto!", "Os moradores ficaram muito infelizes, eles organizaram um protesto contra você!");
+                }
             }
             else
             {
-                happiness += 0.1f;
+                happiness -= slotHandler.HouseParkRatio();
             }
-
-            slotHandler.StartRound();
 
             isRoundActive = true;
 
@@ -70,6 +110,7 @@ public class GameManager : MonoBehaviour
             {
                 resourceLabel.text = resources.ToString();
                 happinessSlider.value = happiness;
+                grass.color = new Color(1, 1, 1, happiness);
                 elapsedTime += Time.deltaTime;
                 yield return null; // Espera o próximo frame
             }
@@ -77,7 +118,6 @@ public class GameManager : MonoBehaviour
             Debug.Log("Rodada " + currentRound + " terminada!");
 
             // Aguarda um segundo antes de iniciar a próxima rodada
-            yield return new WaitForSeconds(1);
         }
 
         Debug.Log("Fim do jogo!");
@@ -93,9 +133,9 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void EndGame()
+    private void EndGame(string title, string message)
     {
-
+        messageHandler.SendEnding(title, message);
     }
 
     public enum Eventos
@@ -110,15 +150,68 @@ public class GameManager : MonoBehaviour
 
     private void ShowEvent(Eventos evento)
     {
-        // for each event possible, make a custom message and title
+        string title = "";
+        string message = "";
 
-        messageHandler.ShowMessage("title", "message");
+        switch (evento)
+        {
+            case Eventos.corte:
+                title = "Corte de Orçamento";
+                message = "Houve um corte significativo no orçamento, você perdeu alguns recursos.";
+                resources -= 5; // Exemplo de efeito
+                break;
+
+            case Eventos.subsidio:
+                title = "Subsídio Concedido";
+                message = "O governo concedeu um subsídio, você ganhou 10 recursos adicionais.";
+                resources += 10; // Exemplo de efeito
+                break;
+
+            case Eventos.inflacao:
+                title = "Inflação Alta";
+                message = "Os preços aumentaram devido à inflação, será mais caro construir.";
+                foreach (var key in priceDictionary.Keys.ToList())
+                {
+                    priceDictionary[key] += 2; // Aumenta os preços
+                }
+                break;
+
+            case Eventos.barateamento:
+                title = "Barateamento";
+                message = "Os custos de construção diminuíram, agora está mais barato construir.";
+                foreach (var key in priceDictionary.Keys.ToList())
+                {
+                    priceDictionary[key] -= 2; // Diminui os preços
+                }
+                break;
+
+            case Eventos.investimento:
+                title = "Investimento Externo";
+                message = "Um investidor externo está disposto a financiar suas construções. 10 recursos extras foram adicionados.";
+                resources += 10; // Exemplo de efeito
+                break;
+
+            case Eventos.enchente:
+                title = "Enchente!";
+                message = "Uma enchente destruiu algumas moradias. Será necessário reconstruir.";
+                // Aqui você pode definir como a enchente afeta o jogo, como reduzir o número de moradias
+                slotHandler.Enchente(); // Exemplo de função para destruir moradias
+                break;
+
+            default:
+                title = "Evento Desconhecido";
+                message = "Algo inesperado aconteceu!";
+                break;
+        }
+
+        messageHandler.ShowMessage(title, message);
     }
+
 
     // Executa o evento selecionado
     void TriggerRandomEvent()
     {
-        int number = Random.Range(0, 5);
+        int number = Random.Range(0, 6);
 
         Debug.Log("Evento da rodada: " + number);
 

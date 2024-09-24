@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -21,9 +19,16 @@ public class Slot : MonoBehaviour
 
     private int progression = 0;
 
+    private GameManager manager;
+
     private void Awake()
     {
         sr = GetComponent<SpriteRenderer>();
+    }
+
+    private void Start()
+    {
+        manager = GameManager.Instance;
     }
 
     public void StartRound()
@@ -43,7 +48,21 @@ public class Slot : MonoBehaviour
         }
     }
 
-    private void ChangeState(State state)
+    public void TryToBuy(State state)
+    {
+        int price = manager.priceDictionary[state];
+
+        if (manager.resources >= price)
+        {
+            manager.resources -= price;
+
+            ChangeState(state);
+
+            UI.SetActive(false);
+        }
+    }
+
+    public void ChangeState(State state)
     {
         this.state = state;
 
@@ -77,24 +96,23 @@ public class Slot : MonoBehaviour
     }
 
     public GameObject UI;
+    public Buyable casa;
     public Text custo;
     public void OnMouseDown()
     {
         switch (state)
         {
             case State.empty:
-                custo.text = "6";
-                UI.GetComponentInChildren<Image>().sprite = sprites[1];
+                casa.SetState(State.precaria);
+                casa.transform.GetChild(0).GetComponent<Image>().sprite = sprites[1];
+                UI.SetActive(true);
                 break;
 
             case State.precaria:
-                custo.text = "8";
-                UI.GetComponentInChildren<Image>().sprite = sprites[2];
+                casa.SetState(State.reformando);
+                casa.transform.GetChild(0).GetComponent<Image>().sprite = sprites[2];
+                UI.SetActive(true);
                 break;
         }
-
-        UI.GetComponentInChildren<Image>().sprite = sprites[1];
-
-        UI.SetActive(true);
     }
 }

@@ -1,7 +1,5 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using static Unity.VisualScripting.Metadata;
 
 public class SlotHandler : MonoBehaviour
 {
@@ -11,7 +9,18 @@ public class SlotHandler : MonoBehaviour
         
     }
 
-    private Dictionary<Slot.State, int> GetChildrenStates()
+    public void Enchente()
+    {
+        Transform[] children = GetComponentsInChildren<Transform>();
+        foreach (var child in children)
+        {
+            if (child.GetComponent<Slot>() == null) continue;
+            var key = child.GetComponent<Slot>().GetState();
+            if (key == Slot.State.precaria) child.GetComponent<Slot>().ChangeState(Slot.State.empty);
+        }
+    }
+
+    public Dictionary<Slot.State, int> GetChildrenStates()
     {
         Transform[] children = GetComponentsInChildren<Transform>();
 
@@ -19,7 +28,14 @@ public class SlotHandler : MonoBehaviour
 
         foreach (var child in children)
         {
-            amounts[child.GetComponent<Slot>().GetState()]++;
+            if (child.GetComponent<Slot>() == null) continue;
+            var key = child.GetComponent<Slot>().GetState();
+            if (amounts.ContainsKey(key))
+                amounts[key]++;
+            else
+            {
+                amounts[key] = 1;
+            }
         }
 
         return amounts;
@@ -31,20 +47,28 @@ public class SlotHandler : MonoBehaviour
 
         foreach (var child in children)
         {
-            child.GetComponent<Slot>().StartRound();
+            child.GetComponent<Slot>()?.StartRound();
         }
     }
 
     public bool HasNoParks()
     {
-        return !GetChildrenStates().ContainsKey(Slot.State.parque);
+        return !GetChildrenStates()?.ContainsKey(Slot.State.parque) ?? false;
     }
 
     public float HouseParkRatio()
     {
         var states = GetChildrenStates();
 
-        int amount = states[Slot.State.pronta] - states[Slot.State.parque];
+        int prontas = 0, parques = 0;
+
+        if (states?.ContainsKey(Slot.State.pronta) ?? false)
+            prontas = states[Slot.State.pronta];
+
+        if (states?.ContainsKey(Slot.State.parque) ?? false)
+            parques = states[Slot.State.parque];
+
+        int amount = prontas - parques;
 
         return amount / 10f;
     }
