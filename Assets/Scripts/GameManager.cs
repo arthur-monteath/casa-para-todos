@@ -62,8 +62,23 @@ public class GameManager : MonoBehaviour
             slotHandler.StartRound();
 
             // Escolhe um evento aleatório
-            if (currentRound != 1 || currentRound != totalRounds)
+            if (currentRound != 1 && currentRound != totalRounds)
                 TriggerRandomEvent();
+
+            if (slotHandler.HasNoParks())
+            {
+                happiness -= 0.1f;
+            }
+            else
+            {
+                happiness -= slotHandler.HouseParkRatio();
+            }
+
+            if (happiness <= 0)
+            {
+                EndGame("Protesto!", "Os moradores ficaram muito infelizes, eles organizaram um protesto contra você!");
+                break;
+            }
 
             if (currentRound == totalRounds)
             {
@@ -87,19 +102,6 @@ public class GameManager : MonoBehaviour
 
                 EndGame("Fim de Jogo!", "Você construiu " + precarias + " moradia(s) precária(s), deixou " + reformas + " em reforma, fez " + casas + " moradia(s) digna(s) e " + parques + " parque(s). Totalizando " + pontos + " pontos.");
                 break;
-            }
-
-            if (slotHandler.HasNoParks())
-            {
-                happiness -= 0.1f;
-                if (happiness <= 0)
-                {
-                    EndGame("Protesto!", "Os moradores ficaram muito infelizes, eles organizaram um protesto contra você!");
-                }
-            }
-            else
-            {
-                happiness -= slotHandler.HouseParkRatio();
             }
 
             isRoundActive = true;
